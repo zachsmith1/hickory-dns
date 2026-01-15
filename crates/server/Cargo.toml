@@ -40,6 +40,10 @@ replication-authority = ["replication-redb"]
 replication-publisher = ["replication", "dep:sha2"]
 # Optional ignored e2e test against a MinIO/S3-compatible endpoint.
 replication-publisher-minio-e2e = ["replication-publisher", "replication-replicator", "object_store/aws"]
+# Multi-node “full stack” replication/serving e2e tests (LocalFileSystem).
+replication-cluster-e2e = ["replication-authority", "replication-publisher", "replication-replicator"]
+# Optional ignored e2e test against a MinIO/S3-compatible endpoint for the multi-node cluster test.
+replication-cluster-minio-e2e = ["replication-cluster-e2e", "object_store/aws"]
 
 tls-aws-lc-rs = [
     "hickory-net/tls-aws-lc-rs",
