@@ -102,7 +102,6 @@ where
 mod tests {
     use super::JsonManifestPoller;
     use crate::replication::artifacts::{CURRENT_MANIFEST_FORMAT_VERSION, GlobalManifest};
-    use bytes::Bytes;
     use object_store::local::LocalFileSystem;
     use object_store::path::Path as ObjPath;
     use object_store::ObjectStore;
@@ -138,15 +137,15 @@ mod tests {
     #[tokio::test]
     async fn poller_returns_none_when_unchanged() {
         let dir = TempDir::new();
-        let store: Arc<dyn ObjectStore> = Arc::new(LocalFileSystem::new_with_prefix(&dir.path).unwrap());
+        let store: Arc<dyn ObjectStore> =
+            Arc::new(LocalFileSystem::new_with_prefix(&dir.path).unwrap());
 
         let loc = ObjPath::from("manifest.json");
         let m = GlobalManifest {
             format_version: CURRENT_MANIFEST_FORMAT_VERSION,
             zones: Default::default(),
         };
-        let json = serde_json::to_vec(&m).unwrap();
-        store.put(&loc, Bytes::from(json).into()).await.unwrap();
+        std::fs::write(dir.path.join("manifest.json"), serde_json::to_vec(&m).unwrap()).unwrap();
 
         let mut poller = JsonManifestPoller::<GlobalManifest>::new(store.clone(), loc.clone());
 
@@ -160,17 +159,19 @@ mod tests {
     #[tokio::test]
     async fn poller_returns_some_when_updated() {
         let dir = TempDir::new();
-        let store: Arc<dyn ObjectStore> = Arc::new(LocalFileSystem::new_with_prefix(&dir.path).unwrap());
+        let store: Arc<dyn ObjectStore> =
+            Arc::new(LocalFileSystem::new_with_prefix(&dir.path).unwrap());
 
         let loc = ObjPath::from("manifest.json");
         let m1 = GlobalManifest {
             format_version: CURRENT_MANIFEST_FORMAT_VERSION,
             zones: Default::default(),
         };
-        store
-            .put(&loc, Bytes::from(serde_json::to_vec(&m1).unwrap()).into())
-            .await
-            .unwrap();
+        std::fs::write(
+            dir.path.join("manifest.json"),
+            serde_json::to_vec(&m1).unwrap(),
+        )
+        .unwrap();
 
         let mut poller = JsonManifestPoller::<GlobalManifest>::new(store.clone(), loc.clone());
         poller.fetch_if_changed().await.unwrap();
@@ -190,10 +191,11 @@ mod tests {
                 },
             },
         );
-        store
-            .put(&loc, Bytes::from(serde_json::to_vec(&m2).unwrap()).into())
-            .await
-            .unwrap();
+        std::fs::write(
+            dir.path.join("manifest.json"),
+            serde_json::to_vec(&m2).unwrap(),
+        )
+        .unwrap();
 
         let changed = poller.fetch_if_changed().await.unwrap();
         assert!(changed.is_some());
