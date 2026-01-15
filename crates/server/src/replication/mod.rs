@@ -28,3 +28,6 @@ pub mod publisher;
 #[cfg(all(test, feature = "replication-cluster-e2e"))]
 mod cluster_e2e;
 
+#[cfg(feature = "replication-pop-runner")]
+pub mod pop_runner;
+
