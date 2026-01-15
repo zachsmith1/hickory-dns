@@ -7,5 +7,6 @@
 pub mod soa_serial;
 pub mod swap;
 pub mod artifacts;
+pub mod delta;
 pub mod zone_view;
 
