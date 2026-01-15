@@ -34,3 +34,41 @@ Old and Outdated crates:
 ## TBD
 
 More on general patterns used in each library
+
+## Global replication for authoritative zones (artifact-based)
+
+This section sketches an internal replication/distribution model for authoritative zone data that is
+intended to remain compatible with existing zone handler implementations.
+
+### Summary
+
+- **Write-plane**: accepts record changes, produces a monotonically ordered, durable change stream,
+  periodically emits immutable artifacts (snapshots + deltas), and publishes a small manifest.
+- **Distribution plane**: object storage (optionally fronted by a CDN) fans out artifacts globally.
+- **Serve-plane (PoP)**: a local “replicator” downloads and applies artifacts into an inactive view,
+  then **atomically activates** the new view for serving.
+- **Hickory on the serve path**: reads from the currently active view only; it does not participate
+  in replication protocols.
+
+This is “LMDB + S3” in spirit: immutable snapshots, ordered deltas, and an atomic pointer flip at
+each PoP.
+
+### Key decisions (v1)
+
+- **Churn assumption**: low-to-moderate record churn; apply mutations in batches (e.g. ~1s) rather
+  than per record to avoid thrashing in-memory authority structures/caches.
+- **Granularity**: replication artifacts are **zone-scoped** (per-zone snapshot + deltas), rather
+  than one global snapshot. This maps to DNS operational semantics and isolates failures.
+- **SOA serial policy**: per-zone monotonic serial served on-wire, using a hybrid rule:
+  `serial = max(prev_serial + 1, yyyymmddNN)`.
+- **Delete safety**: snapshots are authoritative; deltas are retained for a bounded window. If a PoP
+  is too far behind retention, it must refresh from a snapshot for that zone.
+- **Compatibility**: all artifacts and manifests are versioned. PoPs must tolerate N-1 formats
+  (“read old, write new”), and the manifest can declare a minimum supported version/generation.
+
+### Invariants
+
+- **Manifest commit rule**: publish a new manifest only after all referenced artifacts are fully
+  uploaded and verified. PoPs treat the manifest as the only “committed” pointer.
+- **Atomic activation**: a PoP serves exactly one zone generation at a time; readers never observe a
+  partially-applied update.

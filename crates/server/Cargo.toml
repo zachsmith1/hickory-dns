@@ -32,6 +32,9 @@ blocklist = ["resolver"]
 toml = ["dep:toml", "hickory-resolver?/toml"]
 metrics = ["hickory-resolver?/metrics", "dep:metrics"]
 
+# Feature-gated replication building blocks (not used by default)
+replication = []
+
 tls-aws-lc-rs = [
     "hickory-net/tls-aws-lc-rs",
     "hickory-resolver?/tls-aws-lc-rs",
