@@ -251,6 +251,35 @@ impl RedbStaging {
         })
     }
 
+    /// Create the inactive slot by copying the currently active database file, and open it for writes.
+    ///
+    /// This is used for incremental catch-up: copy the active view into the inactive slot, apply only
+    /// the new deltas, then atomically activate.
+    pub fn open_inactive_cloned_from_active(layout: ZoneLayout) -> Result<Self, redb::Error> {
+        let active = layout.active_slot();
+        let inactive = layout.inactive_slot();
+
+        let src = layout.db_path(active).to_path_buf();
+        let dst = layout.db_path(inactive).to_path_buf();
+
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent).map_err(redb::Error::Io)?;
+        }
+        let _ = std::fs::remove_file(&dst);
+        std::fs::copy(&src, &dst).map_err(redb::Error::Io)?;
+
+        let db = open_db(&dst)?;
+        let (zone_id, origin, _generation, _soa_serial) = read_zone_meta(&db)?;
+
+        Ok(Self {
+            layout,
+            slot: inactive,
+            db,
+            zone_id: Some(zone_id),
+            origin: Some(origin),
+        })
+    }
+
     /// Load a snapshot into the inactive database.
     pub fn load_snapshot(
         &mut self,
