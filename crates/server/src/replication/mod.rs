@@ -11,6 +11,7 @@ pub mod delta;
 pub mod snapshot;
 pub mod object_store;
 pub mod zone_view;
+pub mod update_stream;
 
 #[cfg(feature = "replication-redb")]
 pub mod redb_store;
@@ -20,4 +21,7 @@ pub mod replicator;
 
 #[cfg(feature = "replication-authority")]
 pub mod authority;
+
+#[cfg(feature = "replication-publisher")]
+pub mod publisher;
 
