@@ -392,6 +392,28 @@ impl RedbActiveView {
             .map_err(|_| redb::Error::Corrupted("invalid rrset encoding".into()))?;
         Ok(Some(decoded))
     }
+
+    /// Returns true if *any* RRset exists for the given owner name.
+    ///
+    /// This is used to distinguish "name exists but type does not" (NODATA) from NXDOMAIN.
+    pub fn owner_exists(&self, owner_fqdn: &str) -> Result<bool, redb::Error> {
+        let tx = self.db.begin_read()?;
+        let rrsets = tx.open_table(RRSETS)?;
+
+        // Keys are `owner_fqdn || 0 || rrtype_le`, so any RRset for a given owner is within:
+        //   [owner||0||0x0000, owner||0||0xFFFF]
+        let mut start = Vec::with_capacity(owner_fqdn.len() + 1 + 2);
+        start.extend_from_slice(owner_fqdn.as_bytes());
+        start.push(0);
+        start.extend_from_slice(&0u16.to_le_bytes());
+
+        let mut end = Vec::with_capacity(owner_fqdn.len() + 1 + 2);
+        end.extend_from_slice(owner_fqdn.as_bytes());
+        end.push(0);
+        end.extend_from_slice(&u16::MAX.to_le_bytes());
+
+        Ok(rrsets.range(start.as_slice()..=end.as_slice())?.next().is_some())
+    }
 }
 
 #[cfg(test)]

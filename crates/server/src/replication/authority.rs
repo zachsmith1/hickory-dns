@@ -141,7 +141,15 @@ impl ZoneHandler for RedbReplicatedZoneHandler {
                     .map_err(|_| LookupError::from(ResponseCode::ServFail))?;
 
                 let Some(rrset) = rrset else {
-                    return Ok(None);
+                    // Distinguish NODATA (name exists) vs NXDOMAIN (name does not exist).
+                    return if view
+                        .owner_exists(&owner_fqdn)
+                        .map_err(|_| LookupError::from(ResponseCode::ServFail))?
+                    {
+                        Err(LookupError::for_name_exists())
+                    } else {
+                        Err(LookupError::from(ResponseCode::NXDomain))
+                    };
                 };
 
                 let decoded = Self::rrset_from_wire(name, rtype, rrset.ttl, &rrset.rdata_wire)?;
@@ -150,7 +158,7 @@ impl ZoneHandler for RedbReplicatedZoneHandler {
             .await
         {
             Ok(Some(r)) => r,
-            Ok(None) => return LookupControlFlow::Continue(Ok(AuthLookup::Empty)),
+            Ok(None) => unreachable!("missing RRset should return a LookupError"),
             Err(e) => return LookupControlFlow::Continue(Err(e)),
         };
 
@@ -210,7 +218,9 @@ mod tests {
     use super::RedbReplicatedZoneHandler;
     use crate::replication::redb_store::{encode_rrset_value, rrset_key, RedbStaging, ZoneLayout};
     use crate::replication::snapshot::{ZoneSnapshot, CURRENT_SNAPSHOT_FORMAT_VERSION};
-    use crate::zone_handler::{AxfrPolicy, LookupControlFlow, LookupOptions, ZoneHandler, ZoneType};
+    use crate::zone_handler::{
+        AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler, ZoneType,
+    };
     use crate::proto::rr::{LowerName, Name, RecordType};
     use std::collections::BTreeMap;
 
@@ -283,6 +293,49 @@ mod tests {
             LookupControlFlow::Continue(Ok(lookup)) => {
                 assert!(!lookup.was_empty());
             }
+            other => panic!("unexpected lookup result: {other}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn missing_type_returns_name_exists_when_owner_has_other_rrsets() {
+        let dir = TempDir::new("hickory-redb-zonehandler-nodata");
+        let layout = ZoneLayout::new(dir.path.join("zone"));
+
+        // Seed with only A at www.
+        let mut entries = BTreeMap::new();
+        let k = rrset_key("www.example.com.", u16::from(RecordType::A));
+        let v = encode_rrset_value(&crate::replication::delta::RrsetData {
+            ttl: 60,
+            rdata_wire: vec![vec![1, 2, 3, 4]],
+        });
+        entries.insert(k, v);
+        let snap = ZoneSnapshot {
+            format_version: CURRENT_SNAPSHOT_FORMAT_VERSION,
+            zone_id: "z1".into(),
+            origin: "example.com.".into(),
+            base_generation: 1,
+            entries,
+        };
+
+        let mut staging = RedbStaging::open_inactive(layout.clone()).unwrap();
+        staging.load_snapshot(&snap, 1).unwrap();
+        staging.activate().unwrap();
+
+        let handler = RedbReplicatedZoneHandler::new(
+            Name::from_ascii("example.com.").unwrap(),
+            ZoneType::Primary,
+            AxfrPolicy::Deny,
+            layout,
+        );
+
+        let qname = LowerName::from(&Name::from_ascii("www.example.com.").unwrap());
+        let res = handler
+            .lookup(&qname, RecordType::AAAA, None, LookupOptions::default())
+            .await;
+
+        match res {
+            LookupControlFlow::Continue(Err(LookupError::NameExists)) => {}
             other => panic!("unexpected lookup result: {other}"),
         }
     }
