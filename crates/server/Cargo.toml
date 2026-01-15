@@ -33,7 +33,7 @@ toml = ["dep:toml", "hickory-resolver?/toml"]
 metrics = ["hickory-resolver?/metrics", "dep:metrics"]
 
 # Feature-gated replication building blocks (not used by default)
-replication = ["dep:prost"]
+replication = ["dep:prost", "dep:object_store", "dep:serde_json"]
 
 tls-aws-lc-rs = [
     "hickory-net/tls-aws-lc-rs",
@@ -110,10 +110,12 @@ h3-quinn = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 ipnet = { workspace = true, features = ["serde", "std"] }
 prefix-trie.workspace = true
+object_store = { version = "0.12.3", optional = true }
 prost = { version = "0.14.3", optional = true }
 rusqlite = { workspace = true, features = ["bundled", "time"], optional = true }
 rustls = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, optional = true }
 thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true

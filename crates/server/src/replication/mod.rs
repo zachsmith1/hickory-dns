@@ -9,5 +9,6 @@ pub mod swap;
 pub mod artifacts;
 pub mod delta;
 pub mod snapshot;
+pub mod object_store;
 pub mod zone_view;
 
