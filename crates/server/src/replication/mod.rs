@@ -15,3 +15,6 @@ pub mod zone_view;
 #[cfg(feature = "replication-redb")]
 pub mod redb_store;
 
+#[cfg(feature = "replication-replicator")]
+pub mod replicator;
+
