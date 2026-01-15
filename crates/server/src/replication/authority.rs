@@ -71,7 +71,7 @@ impl RedbReplicatedZoneHandler {
         }
 
         let view = RedbActiveView::open(self.layout.clone())
-            .map_err(|e| LookupError::NetError(format!("redb open failed: {e:?}").into()))?;
+            .map_err(|_| LookupError::from(ResponseCode::ServFail))?;
         *guard = Some(ActiveState {
             slot: current_slot,
             view,
@@ -92,7 +92,7 @@ impl RedbReplicatedZoneHandler {
         for bytes in rdata_wire {
             let mut decoder = BinDecoder::new(bytes);
             let rdata = RData::read(&mut decoder, rrtype, Restrict::new(bytes.len() as u16))
-                .map_err(|e| LookupError::NetError(format!("rdata decode: {e}").into()))?;
+                .map_err(|_| LookupError::from(ResponseCode::ServFail))?;
             rrset.add_rdata(rdata);
         }
         Ok(Arc::new(rrset))
@@ -136,18 +136,21 @@ impl ZoneHandler for RedbReplicatedZoneHandler {
 
         let rrset = match self
             .with_view(|view| {
-                let Some(rrset) = view
+                let rrset = view
                     .get_rrset(&owner_fqdn, rrtype_u16)
-                    .map_err(|e| LookupError::NetError(format!("redb read failed: {e:?}").into()))?
-                else {
-                    return Err(LookupError::from(ResponseCode::NXDomain));
+                    .map_err(|_| LookupError::from(ResponseCode::ServFail))?;
+
+                let Some(rrset) = rrset else {
+                    return Ok(None);
                 };
 
-                Self::rrset_from_wire(name, rtype, rrset.ttl, &rrset.rdata_wire)
+                let decoded = Self::rrset_from_wire(name, rtype, rrset.ttl, &rrset.rdata_wire)?;
+                Ok(Some(decoded))
             })
             .await
         {
-            Ok(r) => r,
+            Ok(Some(r)) => r,
+            Ok(None) => return LookupControlFlow::Continue(Ok(AuthLookup::Empty)),
             Err(e) => return LookupControlFlow::Continue(Err(e)),
         };
 
