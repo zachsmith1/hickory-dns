@@ -41,6 +41,8 @@ pub mod metrics;
 pub mod server;
 pub mod store;
 pub mod zone_handler;
+#[cfg(feature = "replication")]
+pub mod replication;
 
 pub use self::server::Server;
 
