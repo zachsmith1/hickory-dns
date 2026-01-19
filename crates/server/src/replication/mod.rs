@@ -25,3 +25,6 @@ pub mod authority;
 #[cfg(feature = "replication-publisher")]
 pub mod publisher;
 
+#[cfg(all(test, feature = "replication-cluster-e2e"))]
+mod cluster_e2e;
+
