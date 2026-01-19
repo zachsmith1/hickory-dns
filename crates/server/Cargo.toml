@@ -37,6 +37,9 @@ replication = ["dep:prost", "dep:object_store", "dep:serde_json"]
 replication-redb = ["replication", "dep:redb"]
 replication-replicator = ["replication-redb", "dep:sha2"]
 replication-authority = ["replication-redb"]
+replication-publisher = ["replication", "dep:sha2"]
+# Optional ignored e2e test against a MinIO/S3-compatible endpoint.
+replication-publisher-minio-e2e = ["replication-publisher", "replication-replicator", "object_store/aws"]
 
 tls-aws-lc-rs = [
     "hickory-net/tls-aws-lc-rs",
