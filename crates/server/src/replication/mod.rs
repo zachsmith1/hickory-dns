@@ -12,3 +12,6 @@ pub mod snapshot;
 pub mod object_store;
 pub mod zone_view;
 
+#[cfg(feature = "replication-redb")]
+pub mod redb_store;
+
