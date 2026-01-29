@@ -18,3 +18,6 @@ pub mod redb_store;
 #[cfg(feature = "replication-replicator")]
 pub mod replicator;
 
+#[cfg(feature = "replication-authority")]
+pub mod authority;
+

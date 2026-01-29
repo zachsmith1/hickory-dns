@@ -36,6 +36,7 @@ metrics = ["hickory-resolver?/metrics", "dep:metrics"]
 replication = ["dep:prost", "dep:object_store", "dep:serde_json"]
 replication-redb = ["replication", "dep:redb"]
 replication-replicator = ["replication-redb", "dep:sha2"]
+replication-authority = ["replication-redb"]
 
 tls-aws-lc-rs = [
     "hickory-net/tls-aws-lc-rs",
