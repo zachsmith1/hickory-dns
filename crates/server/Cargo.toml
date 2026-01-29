@@ -44,6 +44,8 @@ replication-publisher-minio-e2e = ["replication-publisher", "replication-replica
 replication-cluster-e2e = ["replication-authority", "replication-publisher", "replication-replicator"]
 # Optional ignored e2e test against a MinIO/S3-compatible endpoint for the multi-node cluster test.
 replication-cluster-minio-e2e = ["replication-cluster-e2e", "object_store/aws"]
+# PoP background runner / orchestration (multi-zone polling + scheduling).
+replication-pop-runner = ["replication-replicator"]
 
 tls-aws-lc-rs = [
     "hickory-net/tls-aws-lc-rs",

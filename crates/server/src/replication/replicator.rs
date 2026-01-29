@@ -81,6 +81,14 @@ impl ZoneReplicator {
         let Some(manifest) = self.poller.fetch_if_changed().await? else {
             return Ok(false);
         };
+        self.sync_with_manifest(manifest).await
+    }
+
+    /// Catch up to the given manifest (already fetched/decoded by the caller).
+    ///
+    /// This is useful for multi-zone orchestration where the global manifest is polled once and
+    /// per-zone manifests are only fetched when a zone's `latest_generation` advances.
+    pub async fn sync_with_manifest(&mut self, manifest: ZoneManifest) -> Result<bool, ReplicatorError> {
         manifest
             .validate()
             .map_err(|e| ReplicatorError::InvalidManifest(e.to_string()))?;
@@ -139,7 +147,7 @@ impl ZoneReplicator {
     }
 }
 
-async fn fetch_and_verify(
+pub(crate) async fn fetch_and_verify(
     store: &dyn ObjectStore,
     artifact: &ArtifactRef,
 ) -> Result<Vec<u8>, ReplicatorError> {
@@ -154,7 +162,11 @@ async fn fetch_and_verify(
     Ok(bytes.to_vec())
 }
 
-fn verify_sha256(uri: &str, expected: &Sha256Digest, bytes: &[u8]) -> Result<(), ReplicatorError> {
+pub(crate) fn verify_sha256(
+    uri: &str,
+    expected: &Sha256Digest,
+    bytes: &[u8],
+) -> Result<(), ReplicatorError> {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     let digest = hasher.finalize();
@@ -171,7 +183,7 @@ fn verify_sha256(uri: &str, expected: &Sha256Digest, bytes: &[u8]) -> Result<(),
     Ok(())
 }
 
-fn path_from_uri(uri: &str) -> Result<object_store::path::Path, ReplicatorError> {
+pub(crate) fn path_from_uri(uri: &str) -> Result<object_store::path::Path, ReplicatorError> {
     if let Some(rest) = uri.strip_prefix("file://") {
         // object_store paths are relative to the store prefix; normalize to a relative path.
         let rel = rest.trim_start_matches('/');
